@@ -27,6 +27,14 @@ try:
 except ImportError:
     HAS_PE_UK = False
 
+# Skip all tests if policyengine-us is not installed
+try:
+    from policyengine_us import Simulation as USSimulation
+
+    HAS_PE_US = True
+except ImportError:
+    HAS_PE_US = False
+
 from click.testing import CliRunner
 
 from pe_compile.cli import main
@@ -128,6 +136,133 @@ class TestUKValidation:
         which are not yet supported.
         """
         pass
+
+
+@pytest.mark.skipif(not HAS_PE_US, reason="Requires policyengine-us installed")
+class TestUSValidation:
+    """Validate compiled US calculations match PolicyEngine."""
+
+    def test_is_adult_variable(self, runner, tmp_path):
+        """Test is_adult boolean variable."""
+        output_file = tmp_path / "test.py"
+        result = runner.invoke(
+            main,
+            [
+                "-c",
+                "us",
+                "-v",
+                "is_adult",
+                "--year",
+                "2024",
+                "-o",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0, f"Compilation failed: {result.output}"
+
+        code = output_file.read_text()
+        compiled = load_compiled_module(code, "us_adult")
+
+        # Test calculation
+        result = compiled.calculate(age=25)
+        assert result["is_adult"] == True
+
+        result = compiled.calculate(age=10)
+        assert result["is_adult"] == False
+
+    def test_is_child_variable(self, runner, tmp_path):
+        """Test is_child boolean variable."""
+        output_file = tmp_path / "test.py"
+        result = runner.invoke(
+            main,
+            [
+                "-c",
+                "us",
+                "-v",
+                "is_child",
+                "--year",
+                "2024",
+                "-o",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0, f"Compilation failed: {result.output}"
+
+        code = output_file.read_text()
+        compiled = load_compiled_module(code, "us_child")
+
+        # Test calculation
+        result = compiled.calculate(age=10)
+        assert result["is_child"] == True
+
+        result = compiled.calculate(age=25)
+        assert result["is_child"] == False
+
+    def test_compiled_matches_policyengine(self, runner, tmp_path):
+        """Test that compiled code matches PolicyEngine results."""
+        output_file = tmp_path / "test.py"
+        result = runner.invoke(
+            main,
+            [
+                "-c",
+                "us",
+                "-v",
+                "is_adult",
+                "--year",
+                "2024",
+                "-o",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+        code = output_file.read_text()
+        compiled = load_compiled_module(code, "us_match")
+
+        # Compare with PolicyEngine for various ages
+        for age in [5, 17, 18, 25, 65]:
+            # Compiled result
+            compiled_result = compiled.calculate(age=age)
+
+            # PolicyEngine result
+            sim = USSimulation(
+                situation={
+                    "people": {"person": {"age": {2024: age}}},
+                },
+                reform=None,
+            )
+            pe_result = sim.calculate("is_adult", 2024)
+
+            assert compiled_result["is_adult"] == bool(
+                pe_result[0]
+            ), f"Mismatch at age {age}"
+
+    def test_javascript_generation(self, runner, tmp_path):
+        """Test JS generation for US variables."""
+        output_file = tmp_path / "test.js"
+        result = runner.invoke(
+            main,
+            [
+                "-c",
+                "us",
+                "-v",
+                "is_adult",
+                "--year",
+                "2024",
+                "--format",
+                "js",
+                "-o",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0, f"Compilation failed: {result.output}"
+
+        code = output_file.read_text()
+        assert "function calculate" in code
+        assert "age" in code
 
 
 @pytest.mark.skipif(not HAS_PE_UK, reason="Requires policyengine-uk installed")
