@@ -181,6 +181,8 @@ class JSInput:
     default: Any = 0
     type_hint: str = "number"
     description: str = ""
+    entity: str = "person"  # Which entity level this belongs to
+    is_input: bool = True
 
 
 @dataclass
@@ -190,6 +192,7 @@ class JSCalculation:
     name: str
     expression: str
     dependencies: list[str] = field(default_factory=list)
+    entity: str = "person"  # Which entity level this is calculated at
 
 
 class JSCodeGenerator:
@@ -199,10 +202,20 @@ class JSCodeGenerator:
     Produces browser-ready JS code that can run without any backend.
     Perfect for static sites, embedded widgets, and offline tools.
 
-    Usage:
+    Supports two modes:
+    1. Simple mode (default): Single-value inputs, scalar calculations
+    2. Entity-aware mode: Multi-person households, aggregation, broadcasting
+
+    Usage (simple):
         gen = JSCodeGenerator()
         gen.add_input("income", default=0)
         gen.add_calculation("tax", "income * 0.2")
+        code = gen.generate()
+
+    Usage (entity-aware):
+        gen = JSCodeGenerator(include_entity_runtime=True, situation_based=True)
+        gen.add_person_variable("income", is_input=True)
+        gen.add_household_variable("hh_income", formula="aggregateSum(...)")
         code = gen.generate()
     """
 
@@ -211,12 +224,19 @@ class JSCodeGenerator:
         module_type: str = "esm",  # "esm", "commonjs", "iife", "none"
         typescript: bool = False,
         include_jsdoc: bool = True,
+        include_entity_runtime: bool = False,
+        situation_based: bool = False,
     ):
         self.module_type = module_type
         self.typescript = typescript
         self.include_jsdoc = include_jsdoc
+        self.include_entity_runtime = include_entity_runtime
+        self.situation_based = situation_based
         self.inputs: dict[str, JSInput] = {}
         self.calculations: list[JSCalculation] = []
+        # Entity-aware variables
+        self.person_variables: list[JSInput | JSCalculation] = []
+        self.household_variables: list[JSInput | JSCalculation] = []
 
     def add_input(
         self,
@@ -225,13 +245,63 @@ class JSCodeGenerator:
         type_hint: str = "number",
         description: str = "",
     ) -> None:
-        """Add an input variable."""
+        """Add an input variable (simple mode)."""
         self.inputs[name] = JSInput(
             name=name,
             default=default,
             type_hint=type_hint,
             description=description,
         )
+
+    def add_person_variable(
+        self,
+        name: str,
+        is_input: bool = False,
+        default: Any = 0,
+        formula: Optional[str] = None,
+        description: str = "",
+    ) -> None:
+        """Add a person-level variable (entity-aware mode)."""
+        if is_input:
+            var = JSInput(
+                name=name,
+                default=default,
+                description=description,
+                entity="person",
+                is_input=True,
+            )
+        else:
+            var = JSCalculation(
+                name=name,
+                expression=formula or "",
+                entity="person",
+            )
+        self.person_variables.append(var)
+
+    def add_household_variable(
+        self,
+        name: str,
+        is_input: bool = False,
+        default: Any = 0,
+        formula: Optional[str] = None,
+        description: str = "",
+    ) -> None:
+        """Add a household-level variable (entity-aware mode)."""
+        if is_input:
+            var = JSInput(
+                name=name,
+                default=default,
+                description=description,
+                entity="household",
+                is_input=True,
+            )
+        else:
+            var = JSCalculation(
+                name=name,
+                expression=formula or "",
+                entity="household",
+            )
+        self.household_variables.append(var)
 
     def add_calculation(
         self,
@@ -308,6 +378,14 @@ class JSCodeGenerator:
 
     def generate(self) -> str:
         """Generate the complete JavaScript module."""
+        # Use entity-aware generation if configured
+        if self.situation_based or self.include_entity_runtime:
+            return self._generate_entity_aware()
+
+        return self._generate_simple()
+
+    def _generate_simple(self) -> str:
+        """Generate simple scalar-based calculator."""
         lines = []
 
         # Header comment
@@ -401,6 +479,176 @@ class JSCodeGenerator:
             ]
 
         return "\n".join(lines)
+
+    def _generate_entity_aware(self) -> str:
+        """Generate entity-aware calculator for multi-person households."""
+        from pe_compile.js_runtime import get_js_runtime
+
+        lines = []
+
+        # Include runtime if requested
+        if self.include_entity_runtime:
+            lines.append(get_js_runtime())
+            lines.append("")
+
+        # Header
+        lines.append("/**")
+        lines.append(" * Entity-aware calculator from PolicyEngine formulas.")
+        lines.append(" * Supports multi-person households with proper")
+        lines.append(" * aggregation and broadcasting.")
+        lines.append(" */")
+        lines.append("")
+
+        # Main calculate function that takes a situation
+        lines.append("/**")
+        lines.append(" * Calculate all values for a PolicyEngine situation.")
+        lines.append(
+            " * @param {Object} situation - PE-style situation object"
+        )
+        lines.append(
+            " * @returns {Object} Results at person and household levels"
+        )
+        lines.append(" */")
+        lines.append("function calculate(situation) {")
+        lines.append("  const model = createEntityModel(situation);")
+        lines.append("  const personToHH = model.personToHouseholdIndex();")
+        lines.append("  const nHouseholds = model.nHouseholds;")
+        lines.append("")
+
+        # Get person-level inputs
+        lines.append("  // Get person-level inputs")
+        for var in self.person_variables:
+            if isinstance(var, JSInput) and var.is_input:
+                default = var.default
+                lines.append(
+                    f"  const {var.name} = "
+                    f"model.getPersonVariable('{var.name}', {default});"
+                )
+        lines.append("")
+
+        # Get household-level inputs
+        if any(
+            isinstance(v, JSInput) and v.is_input
+            for v in self.household_variables
+        ):
+            lines.append("  // Get household-level inputs")
+            for var in self.household_variables:
+                if isinstance(var, JSInput) and var.is_input:
+                    default = var.default
+                    lines.append(
+                        f"  const {var.name} = "
+                        f"model.getHouseholdVariable('{var.name}', {default});"
+                    )
+            lines.append("")
+
+        # Topologically sort calculations based on dependencies
+        # For now, use a simple heuristic: calculate in declared order
+        # but interleave person/household as needed based on formula references
+        all_calcs = self._order_calculations()
+
+        if all_calcs:
+            lines.append("  // Calculate variables (ordered by dependencies)")
+            for calc in all_calcs:
+                lines.append(f"  const {calc.name} = {calc.expression};")
+            lines.append("")
+
+        # Build return object
+        lines.append("  // Return all results")
+        lines.append("  return {")
+        lines.append("    person: {")
+        for var in self.person_variables:
+            lines.append(f"      {var.name},")
+        lines.append("    },")
+        lines.append("    household: {")
+        for var in self.household_variables:
+            lines.append(f"      {var.name},")
+        lines.append("    },")
+        lines.append("    model,")
+        lines.append("  };")
+        lines.append("}")
+        lines.append("")
+
+        # Module export
+        if self.module_type == "esm":
+            lines.append("export { calculate, createEntityModel };")
+            lines.append("export default calculate;")
+        elif self.module_type == "commonjs":
+            lines.append("module.exports = { calculate, createEntityModel };")
+
+        return "\n".join(lines)
+
+    def _order_calculations(self) -> list[JSCalculation]:
+        """
+        Order calculations based on dependencies.
+
+        Uses topological sort to ensure variables are calculated
+        in the correct order (dependencies before dependents).
+        """
+        # Collect all calculations (both person and household)
+        all_calcs = []
+        for var in self.person_variables:
+            if isinstance(var, JSCalculation):
+                all_calcs.append(var)
+        for var in self.household_variables:
+            if isinstance(var, JSCalculation):
+                all_calcs.append(var)
+
+        if not all_calcs:
+            return []
+
+        # Build dependency graph by analyzing formula references
+        # Get all known variable names (inputs + calculations)
+        input_names = set()
+        for var in self.person_variables:
+            if isinstance(var, JSInput):
+                input_names.add(var.name)
+        for var in self.household_variables:
+            if isinstance(var, JSInput):
+                input_names.add(var.name)
+
+        calc_names = {c.name for c in all_calcs}
+        all_names = input_names | calc_names
+
+        # Build adjacency list for dependencies
+        deps: dict[str, set[str]] = {c.name: set() for c in all_calcs}
+        for calc in all_calcs:
+            # Find references to other variables in the formula
+            for name in all_names:
+                if name != calc.name and name in calc.expression:
+                    # Only count as dependency if it's a calculation
+                    # (inputs are always available)
+                    if name in calc_names:
+                        deps[calc.name].add(name)
+
+        # Topological sort (Kahn's algorithm)
+        in_degree = {name: 0 for name in calc_names}
+        for name, dep_set in deps.items():
+            for dep in dep_set:
+                if dep in in_degree:
+                    in_degree[name] += 1
+
+        # Start with nodes that have no dependencies
+        queue = [name for name, deg in in_degree.items() if deg == 0]
+        ordered_names = []
+
+        while queue:
+            name = queue.pop(0)
+            ordered_names.append(name)
+            # Reduce in-degree for dependents
+            for other_name, dep_set in deps.items():
+                if name in dep_set:
+                    in_degree[other_name] -= 1
+                    if in_degree[other_name] == 0:
+                        queue.append(other_name)
+
+        # Handle cycles (shouldn't happen in valid formulas)
+        if len(ordered_names) != len(all_calcs):
+            # Fall back to declaration order if there's a cycle
+            return all_calcs
+
+        # Return calculations in topological order
+        name_to_calc = {c.name: c for c in all_calcs}
+        return [name_to_calc[name] for name in ordered_names]
 
     def generate_html_demo(self, title: str = "Calculator") -> str:
         """

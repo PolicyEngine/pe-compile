@@ -16,8 +16,10 @@ import click
 
 from pe_compile import __version__
 from pe_compile.generator import CodeGenerator
-from pe_compile.graph import (build_dependency_graph,
-                              extract_dependencies_from_formula)
+from pe_compile.graph import (
+    build_dependency_graph,
+    extract_dependencies_from_formula,
+)
 from pe_compile.js_generator import JSCodeGenerator, python_to_js_expression
 
 
@@ -292,8 +294,10 @@ def main(
     # Apply reform if specified
     reform_values = {}
     if reform:
-        from pe_compile.reform import (apply_reform_to_parameters,
-                                       parse_reform_json)
+        from pe_compile.reform import (
+            apply_reform_to_parameters,
+            parse_reform_json,
+        )
 
         try:
             reform_values = parse_reform_json(reform)
