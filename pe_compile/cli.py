@@ -4,6 +4,8 @@ Command-line interface for pe-compile.
 Usage:
     pe-compile -c uk -v income_tax --year 2024 -o calc.py
     pe-compile -c uk -v income_tax --reform '{"path": 0.25}'
+    pe-compile -c uk -v income_tax --format js -o calc.js
+    pe-compile -c uk -v income_tax --format html -o demo.html
 """
 
 import inspect
@@ -16,6 +18,7 @@ from pe_compile import __version__
 from pe_compile.generator import CodeGenerator
 from pe_compile.graph import (build_dependency_graph,
                               extract_dependencies_from_formula)
+from pe_compile.js_generator import JSCodeGenerator, python_to_js_expression
 
 
 def load_country_system(country: str):
@@ -153,6 +156,13 @@ def get_parameter_value(params, path: str) -> Optional[float]:
     default=True,
     help="Strip comments from generated code (default: True)",
 )
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["python", "js", "ts", "html"]),
+    default="python",
+    help="Output format: python (default), js, ts (TypeScript), html (demo page)",
+)
 @click.version_option(version=__version__)
 def main(
     country: str,
@@ -162,6 +172,7 @@ def main(
     dry_run: bool,
     reform: Optional[str],
     strip_comments: bool,
+    format: str,
 ) -> None:
     """
     Compile PolicyEngine variables into fast standalone calculators.
@@ -171,6 +182,10 @@ def main(
         pe-compile -c uk -v income_tax --year 2024 -o uk_tax.py
 
         pe-compile -c uk -v income_tax --reform '{"gov.tax.rate": 0.19}'
+
+        pe-compile -c uk -v income_tax --format js -o calc.js
+
+        pe-compile -c uk -v income_tax --format html -o demo.html
 
         pe-compile -c uk -v national_insurance --dry-run
     """
@@ -293,43 +308,143 @@ def main(
             raise click.ClickException(str(e))
 
     # Generate code
-    click.echo("Generating standalone calculator...", err=True)
+    format_name = (
+        "JavaScript"
+        if format == "js"
+        else (
+            "TypeScript"
+            if format == "ts"
+            else ("HTML" if format == "html" else "Python")
+        )
+    )
+    click.echo(f"Generating standalone {format_name} calculator...", err=True)
 
-    generator = CodeGenerator()
-
-    # Add all variables
+    # Get sorted variables
     sorted_vars = graph.topological_sort(var_names)
-    for var_name in sorted_vars:
-        if var_name not in graph.variables:
-            continue
 
-        info = graph.variables[var_name]
+    if format in ("js", "ts", "html"):
+        # JavaScript/TypeScript/HTML generation
+        js_gen = JSCodeGenerator(
+            module_type="esm" if format != "html" else "none",
+            typescript=(format == "ts"),
+        )
 
-        if info.is_input or not info.formula_source.strip():
-            generator.add_input_variable(
-                name=var_name,
-                default_value=info.default_value,
-                value_type=info.value_type,
+        # Add inputs and calculations
+        for var_name in sorted_vars:
+            if var_name not in graph.variables:
+                continue
+
+            info = graph.variables[var_name]
+
+            if info.is_input or not info.formula_source.strip():
+                js_gen.add_input(
+                    name=var_name,
+                    default=info.default_value,
+                )
+            else:
+                # Convert formula to JS expression
+                formula = info.formula_source
+
+                # Extract body and convert to JS
+                lines = formula.strip().split("\n")
+                body_lines = []
+                in_body = False
+
+                for line in lines:
+                    if line.strip().startswith("def formula"):
+                        in_body = True
+                        continue
+                    if in_body and line.strip():
+                        body_lines.append(line.strip())
+
+                body = "\n".join(body_lines)
+
+                # Replace entity refs with variable names
+                import re
+
+                entity_pattern = (
+                    r"(?:person|household|tax_unit|family|benunit|state)"
+                    r'\s*\(\s*["\'](\w+)["\']\s*,\s*\w+\s*\)'
+                )
+                body = re.sub(entity_pattern, r"\1", body)
+
+                # Inline parameter values
+                for path, value in param_values.items():
+                    # Handle both full path and short name
+                    short_name = path.split(".")[-1]
+                    body = re.sub(
+                        rf"p\.{re.escape(path)}\b",
+                        str(value),
+                        body,
+                    )
+                    body = re.sub(
+                        rf"parameters\s*\(\s*period\s*\)\.{re.escape(path)}\b",
+                        str(value),
+                        body,
+                    )
+
+                # Convert to JS
+                body = python_to_js_expression(body)
+
+                # Extract return value
+                if "return " in body:
+                    import re as re_mod
+
+                    return_match = re_mod.search(
+                        r"return\s+(.+?)(?:\n|$)",
+                        body,
+                    )
+                    if return_match:
+                        body = return_match.group(1)
+
+                js_gen.add_calculation(var_name, body)
+
+        # Generate output
+        if format == "html":
+            code = js_gen.generate_html_demo(
+                title=f"{country.upper()} Tax Calculator"
             )
         else:
-            generator.add_variable(
-                name=var_name,
-                formula_source=info.formula_source,
-                dependencies=list(info.dependencies),
+            code = js_gen.generate()
+
+    else:
+        # Python generation (original behavior)
+        generator = CodeGenerator()
+
+        # Add all variables
+        for var_name in sorted_vars:
+            if var_name not in graph.variables:
+                continue
+
+            info = graph.variables[var_name]
+
+            if info.is_input or not info.formula_source.strip():
+                generator.add_input_variable(
+                    name=var_name,
+                    default_value=info.default_value,
+                    value_type=info.value_type,
+                )
+            else:
+                generator.add_variable(
+                    name=var_name,
+                    formula_source=info.formula_source,
+                    dependencies=list(info.dependencies),
+                )
+
+        # Add parameter values
+        for path, value in param_values.items():
+            generator.add_parameter(path, value)
+
+        # Generate module with metadata
+        code = generator.generate_module()
+
+        # Add header comment with compilation info
+        reform_info = ""
+        if reform_values:
+            reform_info = (
+                f"\nReform: {len(reform_values)} parameter override(s)"
             )
-
-    # Add parameter values
-    for path, value in param_values.items():
-        generator.add_parameter(path, value)
-
-    # Generate module with metadata
-    code = generator.generate_module()
-
-    # Add header comment with compilation info
-    reform_info = ""
-    if reform_values:
-        reform_info = f"\nReform: {len(reform_values)} parameter override(s)"
-    header = f'''"""
+        header = f'''"""
 Standalone calculator compiled from PolicyEngine {country.upper()}.
 
 Generated by pe-compile v{__version__}
@@ -340,7 +455,7 @@ Parameters: {len(param_values)}{reform_info}
 """
 
 '''
-    code = header + code.split('"""', 2)[-1].lstrip()
+        code = header + code.split('"""', 2)[-1].lstrip()
 
     # Output
     if output:
