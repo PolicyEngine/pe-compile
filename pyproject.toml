@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pe-compile"
+version = "0.1.0"
+description = "Compile PolicyEngine country models into fast standalone calculators"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PolicyEngine", email = "hello@policyengine.org"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "policyengine-core>=3.0.0",
+    "click>=8.0.0",
+    "black>=24.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+uk = [
+    "policyengine-uk>=2.0.0",
+]
+us = [
+    "policyengine-us>=1.0.0",
+]
+
+[project.scripts]
+pe-compile = "pe_compile.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/PolicyEngine/pe-compile"
+Repository = "https://github.com/PolicyEngine/pe-compile"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pe_compile*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 79
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []
+
+[tool.black]
+line-length = 79
+target-version = ["py310", "py311", "py312", "py313"]
+
+[tool.coverage.run]
+source = ["pe_compile"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
