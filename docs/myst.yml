@@ -1,20 +1,16 @@
 version: 1
 project:
   title: pe-compile
-  description: Compile PolicyEngine country models into fast standalone calculators
   github: https://github.com/PolicyEngine/pe-compile
+  toc:
+    - file: index.md
+    - file: getting-started.md
+    - file: benchmarks.md
+    - file: api.md
 
 site:
   template: book-theme
-  title: pe-compile Documentation
+  title: pe-compile
   options:
+    favicon: ""
     logo: ""
-  nav:
-    - title: Home
-      url: /
-    - title: Getting Started
-      url: /getting-started
-    - title: Benchmarks
-      url: /benchmarks
-    - title: API Reference
-      url: /api
