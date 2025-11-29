@@ -12,10 +12,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pe_compile.graph import (
-    DependencyGraph,
-    extract_dependencies_from_formula,
-)
+from pe_compile.graph import DependencyGraph, extract_dependencies_from_formula
 
 
 @dataclass

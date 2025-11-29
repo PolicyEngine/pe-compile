@@ -2,11 +2,8 @@
 
 import pytest
 
-from pe_compile.graph import (
-    DependencyGraph,
-    build_dependency_graph,
-    extract_dependencies_from_formula,
-)
+from pe_compile.graph import (DependencyGraph, build_dependency_graph,
+                              extract_dependencies_from_formula)
 
 
 class TestExtractDependenciesFromFormula:

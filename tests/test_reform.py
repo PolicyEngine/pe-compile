@@ -4,11 +4,8 @@ import pytest
 from click.testing import CliRunner
 
 from pe_compile.cli import main
-from pe_compile.reform import (
-    apply_reform_to_parameters,
-    parse_reform_dict,
-    parse_reform_json,
-)
+from pe_compile.reform import (apply_reform_to_parameters, parse_reform_dict,
+                               parse_reform_json)
 
 
 class TestParseReformJson:

@@ -12,6 +12,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from pe_compile.ast_parser import FormulaAnalyzer
+
 
 @dataclass
 class Dependencies:
@@ -142,14 +144,29 @@ def extract_dependencies_from_formula(formula_source: str) -> Dependencies:
     """
     Extract variable and parameter dependencies from a formula's source code.
 
-    Parses the formula AST to find:
+    Uses AST parsing for robust extraction, with regex fallback for edge cases.
+
+    Parses the formula to find:
     - Variable references: person("variable_name", period)
     - Parameter references: parameters(period).gov.path.to.param
     """
     deps = Dependencies()
 
+    if not formula_source.strip():
+        return deps
+
+    # Try AST-based parsing first (more robust)
+    try:
+        analyzer = FormulaAnalyzer(formula_source)
+        deps.variables = analyzer.variables
+        deps.parameters = analyzer.parameters
+        return deps
+    except SyntaxError:
+        # Fall back to regex for malformed source
+        pass
+
+    # Fallback: regex-based parsing
     # Pattern for variable references: entity("variable_name", period)
-    # Matches: person("var", period), household("var", period), etc.
     var_pattern = (
         r"(?:person|household|tax_unit|family|benunit|state)"
         r'\s*\(\s*["\'](\w+)["\']'
@@ -163,21 +180,15 @@ def extract_dependencies_from_formula(formula_source: str) -> Dependencies:
         deps.variables.add(match.group(1))
 
     # Pattern for parameter references
-    # First, find the parameter alias if used (e.g., p = parameters(period))
     alias_pattern = r"(\w+)\s*=\s*parameters\s*\(\s*period\s*\)"
     aliases = ["parameters(period)"]
     for match in re.finditer(alias_pattern, formula_source):
         aliases.append(match.group(1))
 
-    # Now find parameter path accesses
-    # Matches: parameters(period).gov.path.to.param or p.gov.path.to.param
     for alias in aliases:
-        # Escape special regex characters in alias
         escaped_alias = re.escape(alias)
-        # Match the alias followed by a chain of .attribute accesses
         param_pattern = rf"{escaped_alias}((?:\.\w+)+)"
         for match in re.finditer(param_pattern, formula_source):
-            # Remove leading dot and clean up the path
             param_path = match.group(1).lstrip(".")
             if param_path:
                 deps.parameters.add(param_path)

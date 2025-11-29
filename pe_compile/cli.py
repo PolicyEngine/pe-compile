@@ -14,10 +14,8 @@ import click
 
 from pe_compile import __version__
 from pe_compile.generator import CodeGenerator
-from pe_compile.graph import (
-    build_dependency_graph,
-    extract_dependencies_from_formula,
-)
+from pe_compile.graph import (build_dependency_graph,
+                              extract_dependencies_from_formula)
 
 
 def load_country_system(country: str):
@@ -279,10 +277,8 @@ def main(
     # Apply reform if specified
     reform_values = {}
     if reform:
-        from pe_compile.reform import (
-            apply_reform_to_parameters,
-            parse_reform_json,
-        )
+        from pe_compile.reform import (apply_reform_to_parameters,
+                                       parse_reform_json)
 
         try:
             reform_values = parse_reform_json(reform)

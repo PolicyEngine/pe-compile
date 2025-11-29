@@ -8,18 +8,11 @@ the full PolicyEngine framework.
 
 __version__ = "0.1.0"
 
-from pe_compile.generator import (
-    CodeGenerator,
-    generate_standalone_function,
-    inline_parameters,
-)
-from pe_compile.graph import (
-    Dependencies,
-    DependencyGraph,
-    VariableInfo,
-    build_dependency_graph,
-    extract_dependencies_from_formula,
-)
+from pe_compile.generator import (CodeGenerator, generate_standalone_function,
+                                  inline_parameters)
+from pe_compile.graph import (Dependencies, DependencyGraph, VariableInfo,
+                              build_dependency_graph,
+                              extract_dependencies_from_formula)
 
 __all__ = [
     "DependencyGraph",

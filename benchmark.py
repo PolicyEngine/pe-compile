@@ -8,8 +8,8 @@ This script measures:
 4. Memory usage
 """
 
-import time
 import sys
+import time
 import tracemalloc
 
 # ============================================================
@@ -22,9 +22,10 @@ print("=" * 60)
 
 gen_start = time.time()
 
+import inspect
+
 from pe_compile import CodeGenerator
 from pe_compile.graph import extract_dependencies_from_formula
-import inspect
 
 # We'll manually create a simple income tax calculator
 # that mirrors what PE does, but standalone
@@ -133,11 +134,14 @@ print("=" * 60)
 standalone_start = time.time()
 # The code is already compiled, just need to call it
 standalone_startup = time.time() - standalone_start
-print(f"Standalone startup: {standalone_startup*1000:.2f}ms (code already loaded)")
+print(
+    f"Standalone startup: {standalone_startup*1000:.2f}ms (code already loaded)"
+)
 
 # PolicyEngine startup
 pe_start = time.time()
 from policyengine_uk import CountryTaxBenefitSystem
+
 system = CountryTaxBenefitSystem()
 pe_startup = time.time() - pe_start
 print(f"PolicyEngine startup: {pe_startup*1000:.1f}ms")
@@ -152,6 +156,7 @@ print("BENCHMARK: SINGLE CALCULATION")
 print("=" * 60)
 
 from policyengine_uk import Simulation
+
 
 def pe_calculate(employment_income, pension_contributions=0, age=30):
     """Calculate using full PolicyEngine."""
@@ -174,6 +179,7 @@ def pe_calculate(employment_income, pension_contributions=0, age=30):
         "income_tax": float(sim.calculate("income_tax", 2024)[0]),
     }
 
+
 # Warm up
 _ = standalone_calculate(employment_income=50000)
 _ = pe_calculate(50000)
@@ -183,7 +189,9 @@ n_iterations = 100
 standalone_times = []
 for _ in range(n_iterations):
     start = time.time()
-    result = standalone_calculate(employment_income=50000, pension_contributions=5000)
+    result = standalone_calculate(
+        employment_income=50000, pension_contributions=5000
+    )
     standalone_times.append(time.time() - start)
 
 standalone_avg = sum(standalone_times) / len(standalone_times)
@@ -226,8 +234,7 @@ batch_start = time.time()
 standalone_results = []
 for i in range(n_households):
     r = standalone_calculate(
-        employment_income=incomes[i],
-        pension_contributions=pensions[i]
+        employment_income=incomes[i], pension_contributions=pensions[i]
     )
     standalone_results.append(r["income_tax"])
 standalone_batch_time = time.time() - batch_start
@@ -247,7 +254,9 @@ pe_batch_projected = pe_batch_time * (n_households / sample_size)
 print(f"PolicyEngine batch (projected): {pe_batch_projected*1000:.0f}ms total")
 print(f"  Per household: {pe_batch_time/sample_size*1000:.1f}ms")
 
-print(f"\n🚀 Batch speedup: {pe_batch_projected/standalone_batch_time:.0f}x faster")
+print(
+    f"\n🚀 Batch speedup: {pe_batch_projected/standalone_batch_time:.0f}x faster"
+)
 
 # ============================================================
 # PART 5: Memory usage comparison
