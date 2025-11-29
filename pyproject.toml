@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "pe-compile"
@@ -25,7 +25,6 @@ requires-python = ">=3.10"
 dependencies = [
     "policyengine-core>=3.0.0",
     "click>=8.0.0",
-    "black>=24.0.0",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +32,12 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
+    "black>=24.0.0",
+]
+docs = [
+    "myst-nb>=1.0.0",
+    "sphinx-book-theme>=1.0.0",
+    "sphinx>=7.0.0",
 ]
 uk = [
     "policyengine-uk>=2.0.0",
@@ -47,10 +52,10 @@ pe-compile = "pe_compile.cli:main"
 [project.urls]
 Homepage = "https://github.com/PolicyEngine/pe-compile"
 Repository = "https://github.com/PolicyEngine/pe-compile"
+Documentation = "https://policyengine.github.io/pe-compile"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["pe_compile*"]
+[tool.hatch.build.targets.wheel]
+packages = ["pe_compile"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -79,4 +84,12 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "black>=24.0.0",
 ]

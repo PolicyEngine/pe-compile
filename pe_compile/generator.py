@@ -332,7 +332,19 @@ class CodeGenerator:
         body = re.sub(r"\w+\.sum\s*\(", "np.sum(", body)
 
         # Replace return statement with assignment
-        if body.strip().startswith("return "):
-            body = f"{var.name} = " + body.strip()[7:]
+        # Handle both single-line and multi-line cases
+        body_lines = body.split("\n")
+        new_lines = []
+        for line in body_lines:
+            stripped = line.strip()
+            if stripped.startswith("return "):
+                # Replace return with assignment
+                indent = len(line) - len(line.lstrip())
+                new_lines.append(
+                    " " * indent + f"{var.name} = " + stripped[7:]
+                )
+            else:
+                new_lines.append(line)
+        body = "\n".join(new_lines)
 
         return body
