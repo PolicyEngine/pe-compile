@@ -1,11 +1,12 @@
 """Tests for AST-based formula parsing."""
 
-import pytest
-
-from pe_compile.ast_parser import (FormulaAnalyzer, extract_add_variables,
-                                   extract_parameter_references,
-                                   extract_variable_references,
-                                   extract_where_conditions)
+from pe_compile.ast_parser import (
+    FormulaAnalyzer,
+    extract_add_variables,
+    extract_parameter_references,
+    extract_variable_references,
+    extract_where_conditions,
+)
 
 
 class TestExtractVariableReferences:

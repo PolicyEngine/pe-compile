@@ -16,8 +16,10 @@ import click
 
 from pe_compile import __version__
 from pe_compile.generator import CodeGenerator
-from pe_compile.graph import (build_dependency_graph,
-                              extract_dependencies_from_formula)
+from pe_compile.graph import (
+    build_dependency_graph,
+    extract_dependencies_from_formula,
+)
 from pe_compile.js_generator import JSCodeGenerator, python_to_js_expression
 
 
@@ -161,7 +163,10 @@ def get_parameter_value(params, path: str) -> Optional[float]:
     "-f",
     type=click.Choice(["python", "js", "ts", "html"]),
     default="python",
-    help="Output format: python (default), js, ts (TypeScript), html (demo page)",
+    help=(
+        "Output format: python (default), js, ts (TypeScript), "
+        "html (demo page)"
+    ),
 )
 @click.version_option(version=__version__)
 def main(
@@ -292,8 +297,10 @@ def main(
     # Apply reform if specified
     reform_values = {}
     if reform:
-        from pe_compile.reform import (apply_reform_to_parameters,
-                                       parse_reform_json)
+        from pe_compile.reform import (
+            apply_reform_to_parameters,
+            parse_reform_json,
+        )
 
         try:
             reform_values = parse_reform_json(reform)
@@ -370,8 +377,6 @@ def main(
 
                 # Inline parameter values
                 for path, value in param_values.items():
-                    # Handle both full path and short name
-                    short_name = path.split(".")[-1]
                     body = re.sub(
                         rf"p\.{re.escape(path)}\b",
                         str(value),

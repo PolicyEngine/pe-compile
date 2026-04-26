@@ -1,7 +1,10 @@
 """Tests for standalone Python code generation."""
 
-from pe_compile.generator import (CodeGenerator, generate_standalone_function,
-                                  inline_parameters)
+from pe_compile.generator import (
+    CodeGenerator,
+    generate_standalone_function,
+    inline_parameters,
+)
 
 
 class TestGenerateStandaloneFunction:

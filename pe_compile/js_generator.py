@@ -419,7 +419,7 @@ class JSCodeGenerator:
             input_fields.append(
                 f"""
       <div class="field">
-        <label for="{name}">{name.replace('_', ' ').title()}</label>
+        <label for="{name}">{name.replace("_", " ").title()}</label>
         <input type="number" id="{name}" value="{inp.default}"
                oninput="updateResults()">
       </div>"""
@@ -430,7 +430,7 @@ class JSCodeGenerator:
             result_fields.append(
                 f"""
       <div class="result">
-        <span class="label">{calc.name.replace('_', ' ').title()}</span>
+        <span class="label">{calc.name.replace("_", " ").title()}</span>
         <span class="value" id="result_{calc.name}">0</span>
       </div>"""
             )
@@ -455,7 +455,8 @@ class JSCodeGenerator:
   <style>
     * {{ box-sizing: border-box; }}
     body {{
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+        Roboto, sans-serif;
       max-width: 500px;
       margin: 2rem auto;
       padding: 1rem;
