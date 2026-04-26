@@ -416,24 +416,20 @@ class JSCodeGenerator:
 
         input_fields = []
         for name, inp in self.inputs.items():
-            input_fields.append(
-                f"""
+            input_fields.append(f"""
       <div class="field">
         <label for="{name}">{name.replace("_", " ").title()}</label>
         <input type="number" id="{name}" value="{inp.default}"
                oninput="updateResults()">
-      </div>"""
-            )
+      </div>""")
 
         result_fields = []
         for calc in self.calculations:
-            result_fields.append(
-                f"""
+            result_fields.append(f"""
       <div class="result">
         <span class="label">{calc.name.replace("_", " ").title()}</span>
         <span class="value" id="result_{calc.name}">0</span>
-      </div>"""
-            )
+      </div>""")
 
         # Build update function
         input_reads = ", ".join(
