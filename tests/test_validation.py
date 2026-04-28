@@ -14,22 +14,14 @@ These tests focus on simpler patterns that ARE supported.
 import importlib.util
 import sys
 import tempfile
-from pathlib import Path
 
-import numpy as np
 import pytest
-
-# Skip all tests if policyengine-uk is not installed
-try:
-    from policyengine_uk import Simulation
-
-    HAS_PE_UK = True
-except ImportError:
-    HAS_PE_UK = False
-
 from click.testing import CliRunner
 
 from pe_compile.cli import main
+
+# Skip all tests if policyengine-uk is not installed
+HAS_PE_UK = importlib.util.find_spec("policyengine_uk") is not None
 
 
 def load_compiled_module(code: str, module_name: str = "compiled"):

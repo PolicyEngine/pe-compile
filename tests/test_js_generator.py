@@ -1,9 +1,10 @@
 """Tests for JavaScript code generation."""
 
-import pytest
-
-from pe_compile.js_generator import (JSCodeGenerator, generate_js_function,
-                                     python_to_js_expression)
+from pe_compile.js_generator import (
+    JSCodeGenerator,
+    generate_js_function,
+    python_to_js_expression,
+)
 
 
 class TestPythonToJsExpression:
